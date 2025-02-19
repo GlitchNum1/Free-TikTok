@@ -139,7 +139,7 @@ def get_statistics():
 # الصفحة الرئيسية بعد تسجيل الدخول (بتصميم أكثر جاذبية)
 def home_page(page):
     total_accounts, unique_sites = get_statistics()
-    page.scroll = "auto"
+
     return ft.View(
         "/home",
         [
@@ -159,7 +159,6 @@ def home_page(page):
 
                         ft.Row(
                             [
-                                # بطاقة الحسابات
                                 ft.Card(
                                     content=ft.Container(
                                         content=ft.Column(
@@ -176,7 +175,6 @@ def home_page(page):
                                     elevation=5
                                 ),
 
-                                # بطاقة المواقع الفريدة
                                 ft.Card(
                                     content=ft.Container(
                                         content=ft.Column(
@@ -187,30 +185,20 @@ def home_page(page):
                                             ],
                                             alignment=ft.MainAxisAlignment.CENTER,
                                             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                                            scroll='auto'
                                         ),
                                         padding=20
                                     ),
                                     elevation=5
                                 ),
-                                ft.ElevatedButton(
-                                    "المطور",
-                                    icon=ft.icons.CODE,
-                                    bgcolor=ft.colors.BLUE_700,
-                                    color=ft.colors.WHITE,
-                                    style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=12), elevation=5),
-                                    on_click=lambda e: page.go("/about"),
-                                    width=150,
-                                    height=90
-                                ),
                             ],
                             alignment=ft.MainAxisAlignment.CENTER,
                             spacing=20,
-                        # زر الانتقال لإدارة الحسابات
+                            scroll='auto'
                         ),
 
                         ft.Divider(thickness=2, color=ft.colors.BLUE_GREY_300),
 
-                        # زر الانتقال لإدارة الحسابات
                         ft.ElevatedButton(
                             "📂 إدارة الحسابات",
                             icon=ft.icons.ACCOUNT_BOX,
@@ -221,17 +209,21 @@ def home_page(page):
                         ),
                     ],
                     spacing=20,
-                    horizontal_alignment=ft.CrossAxisAlignment.CENTER
+                    horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                    scroll="auto"  # ← تمكين التمرير داخل العمود
                 ),
                 alignment=ft.alignment.center,
                 expand=True,
                 padding=20,
-                bgcolor=ft.colors.GREY_100  # لون خلفية خفيف
+                bgcolor=ft.colors.GREY_100
             )
         ]
     )
 
+# Page لإدارة الحسابات
 def acount_page(page):
+    page.scroll = "auto"
+    
     def load_accounts():
         """تحميل الحسابات من قاعدة البيانات وتحديث الجدول فورًا"""
         cursor.execute("SELECT id, site, username, password FROM passwords")
@@ -269,7 +261,8 @@ def acount_page(page):
                                 on_click=lambda e, pw=account[3]: copy_password(pw)
                             ),
                         ],
-                        alignment=ft.MainAxisAlignment.CENTER
+                        alignment=ft.MainAxisAlignment.CENTER,
+                        scroll='auto',
                     ),
                     bgcolor=row_color,
                     border_radius=10,
@@ -375,7 +368,8 @@ def acount_page(page):
                         ft.Divider(thickness=3),
                     ],
                     spacing=20,
-                    horizontal_alignment=ft.CrossAxisAlignment.CENTER
+                    horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                    scroll='auto'
                 ),
                 alignment=ft.alignment.center,
                 expand=True
@@ -429,7 +423,7 @@ def about_page(page):
                                     icon=ft.icons.TELEGRAM, icon_color=ft.colors.BLUE,
                                     tooltip="تواصل عبر تيليجرام",
                                     icon_size=30,
-                                    on_click=lambda e: open_link("https://t.me/pythonforbot1")
+                                    on_click=lambda e: open_link("https://t.me/")
                                 ),
                                 ft.IconButton(
                                     icon=ft.icons.EMAIL, icon_color=ft.colors.RED,
