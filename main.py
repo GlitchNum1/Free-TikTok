@@ -1,6 +1,9 @@
 import flet as ft
 import time
 import requests
+import json
+from datetime import datetime, timedelta
+import os
 def main(page: ft.Page):
     page.title = 'TikTok Free Viewers'
     page.window.width = 370
@@ -299,51 +302,91 @@ def close_dialog(e):
             control.open = False
     e.page.update()  # تحديث الصفحة بعد الإغلاق
 
+
+
+
+# ملف التخزين المحلي
+STORAGE_FILE = "requests.json"
+
+def load_requests():
+    """ تحميل بيانات الطلبات من الملف """
+    if os.path.exists(STORAGE_FILE):
+        with open(STORAGE_FILE, "r") as f:
+            return json.load(f)
+    return {}
+
+def save_requests(requests):
+    """ حفظ بيانات الطلبات إلى الملف """
+    with open(STORAGE_FILE, "w") as f:
+        json.dump(requests, f, indent=4)
+
+def can_place_order(user_id):
+    """ التحقق مما إذا كان المستخدم يمكنه إرسال طلب جديد """
+    requests = load_requests()
+    now = datetime.now()
+    
+    # تحديث الطلبات بحذف القديمة (أكثر من 12 ساعة)
+    if user_id in requests:
+        requests[user_id] = [req for req in requests[user_id] if now - datetime.fromisoformat(req) < timedelta(hours=12)]
+    else:
+        requests[user_id] = []
+    
+    save_requests(requests)
+    return len(requests[user_id]) < 4, 4 - len(requests[user_id])
+
+def record_request(user_id):
+    """ تسجيل طلب جديد للمستخدم """
+    requests = load_requests()
+    if user_id not in requests:
+        requests[user_id] = []
+    
+    requests[user_id].append(datetime.now().isoformat())
+    save_requests(requests)
+
 def View():
     selected_value = ft.Ref[ft.Dropdown]()
     video_link_input = ft.Ref[ft.TextField]()
     button_state = ft.Ref[ft.AnimatedSwitcher]()
+    user_id = "user_123"  # يجب تغييرها إلى معرف المستخدم الحقيقي
 
     def process_video(e):
         """ دالة إرسال الطلب عند الضغط على الزر """
+        can_order, remaining_requests = can_place_order(user_id)
+        if not can_order:
+            e.page.open(ft.SnackBar(content=ft.Text("لقد نفذت المحاولات المجانيه يمكنك العوده مره الاخر بعد 12 ساعه للتجديد 4 اخري" , color=ft.colors.WHITE), bgcolor="red"))  # ✅ الطريقة الجديدة
+            e.page.update()
+            return
+        
         video_url = video_link_input.current.value.strip()
         quantity = selected_value.current.value
 
         if not video_url:
-            snack = ft.SnackBar(content=ft.Text("❌ Please enter a valid video link!", color="white"), bgcolor="red")
-            e.page.overlay.append(snack)  # ✅ الطريقة الجديدة
+            e.page.open(ft.SnackBar(content=ft.Text("❌ من فضلك ادخل رابط الفديو"), bgcolor="green"))  # ✅ الطريقة الجديدة
             e.page.update()
             return
 
         if not quantity:
-            snack = ft.SnackBar(content=ft.Text("❌ Please select view count!", color="white"), bgcolor="red")
-            e.page.overlay.append(snack)  # ✅ الطريقة الجديدة
+            e.page.open(ft.SnackBar(content=ft.Text("❌ من فضلك ادخل الكميه"), bgcolor="green"))  # ✅ الطريقة الجديدة
             e.page.update()
             return
 
-        # 🔄 تغيير الزر إلى مؤشر تحميل
         button_state.current.content = ft.ProgressRing(color="white")
         e.page.update()
 
-        # ⏳ إرسال الطلب إلى API
-        response = send_view_request(video_url, quantity)
+        # ⏳ إرسال الطلب إلى API (محاكاة استجابة ناجحة)
+        response = {"order": "123456"}  # استبدلها بالاستجابة الفعلية
 
-        # ✅ التعامل مع الرد
         if "order" in response:
-            success_msg = f"✅ Order Placed Successfully! Order ID: {response['order']}"
-            snack = ft.SnackBar(content=ft.Text(success_msg, color="white"), bgcolor="green")
-            e.page.snack_bar = ft.SnackBar(content=ft.Text(f"✅ Order Placed Successfully! Order ID: {response['order']}", color="white"), bgcolor="red")
-            e.page.snack_bar.open = True
-            e.page.update()
+            record_request(user_id)
+            success_msg = f"✅ تم إرسال الطلب بنجاح! رقم الطلب: {response['order']} | الطلبات المتبقية: {remaining_requests - 1}"
+            e.page.snack_bar = ft.SnackBar(ft.Text(success_msg, color="white"), bgcolor="green")
         else:
-            error_msg = f"❌ Error: {response.get('error', 'Unknown error!')}"
-            snack = ft.SnackBar(content=ft.Text(error_msg, color="white"), bgcolor="red")
-            ft.SnackBar(ft.Text(f"Counter value at", color="white"), bgcolor="red")
-
-        e.page.overlay.append(snack)  # ✅ الطريقة الجديدة
+            error_msg = "❌ حدث خطأ أثناء الطلب!"
+            e.page.snack_bar = ft.SnackBar(ft.Text(error_msg, color="white"), bgcolor="red")
+        
+        e.page.snack_bar.open = True
         e.page.update()
 
-        # 🔄 إعادة الزر الأصلي
         button_state.current.content = ft.ElevatedButton(
             "Get Views",
             on_click=process_video,
@@ -369,50 +412,10 @@ def View():
             ft.Container(
                 content=ft.Column(
                     [
-                        ft.Text(
-                            "Get Free TikTok Views Instantly!",
-                            size=20,
-                            color="white",
-                            weight=ft.FontWeight.BOLD,
-                            text_align=ft.TextAlign.CENTER
-                        ),
-                        ft.TextField(
-                            ref=video_link_input,
-                            label="Enter TikTok Video Link",
-                            hint_text="Paste your video link here...",
-                            border_color="#ff0050",
-                            text_style=ft.TextStyle(color="white"),
-                            bgcolor="#282828",
-                            border_radius=10
-                        ),
-                        ft.Dropdown(
-                            ref=selected_value,
-                            label="Select View Count",
-                            hint_text="Choose the number of views...",
-                            options=[
-                                ft.dropdown.Option("1000"),
-                            ],
-                            border_color="#ff0050",
-                            text_style=ft.TextStyle(color="white"),
-                            bgcolor="#282828",
-                            border_radius=10
-                        ),
-                        ft.AnimatedSwitcher(
-                            ref=button_state,
-                            duration=500,
-                            transition=ft.AnimatedSwitcherTransition.FADE,
-                            content=ft.ElevatedButton(
-                                "Get Views",
-                                on_click=process_video,
-                                bgcolor="#ff0050",
-                                color="white",
-                                style=ft.ButtonStyle(
-                                    shape=ft.RoundedRectangleBorder(radius=10),
-                                    padding=10,
-                                    elevation=5
-                                ),
-                            ),
-                        )
+                        ft.Text("احصل على مشاهدات تيك توك مجانًا!", size=20, color="white", weight=ft.FontWeight.BOLD, text_align=ft.TextAlign.CENTER),
+                        ft.TextField(ref=video_link_input, label="رابط الفيديو", hint_text="الصق الرابط هنا...", border_color="#ff0050", text_style=ft.TextStyle(color="white"), bgcolor="#282828", border_radius=10),
+                        ft.Dropdown(ref=selected_value, label="اختر عدد المشاهدات", hint_text="حدد العدد...", options=[ft.dropdown.Option("1000"), ft.dropdown.Option("5000"), ft.dropdown.Option("10000")], border_color="#ff0050", text_style=ft.TextStyle(color="white"), bgcolor="#282828", border_radius=10),
+                        ft.AnimatedSwitcher(ref=button_state, duration=500, transition=ft.AnimatedSwitcherTransition.FADE, content=ft.ElevatedButton("Get Views", on_click=process_video, bgcolor="#ff0050", color="white", style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=10), padding=10, elevation=5))),
                     ],
                     alignment=ft.MainAxisAlignment.CENTER,
                     horizontal_alignment=ft.CrossAxisAlignment.CENTER,
