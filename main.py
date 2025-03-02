@@ -15,18 +15,27 @@ def main(page: ft.Page):
 API_KEY = "1YHzPe0UKOe1AwwYtvQpkMKzF04DKtQYpKzRxAM3rTQu8unAS8tQl5JjPBkh"
 API_URL = "https://smmeg.shop/api/v2"
 
-def send_view_request(video_url, quantity):
-    """ إرسال طلب المشاهدات إلى API موقع SMMEG """
-    payload = {
+def send_order(video_url, quantity):
+    """ إرسال الطلب إلى API موقع SMMEG """
+    data = {
         "key": API_KEY,
         "action": "add",
-        "service": "1972",  # ضع ID الخدمة الصحيحة هنا
+        "service": "1972",  # تأكد من وضع ID الخدمة الصحيح
         "link": video_url,
         "quantity": quantity
     }
-    
-    response = requests.post(API_URL, data=payload)
-    return response.json()
+    try:
+        response = requests.post(API_URL, data=data)  # استخدام data بدلاً من json
+        response_data = response.json()
+        
+        if "order" in response_data:
+            return response_data["order"], None
+        else:
+            return None, response_data.get("error", "حدث خطأ غير متوقع")
+
+    except Exception as e:
+        return None, str(e)
+
 def home():
     return ft.View(
         "/home",
@@ -347,13 +356,14 @@ def View():
     selected_value = ft.Ref[ft.Dropdown]()
     video_link_input = ft.Ref[ft.TextField]()
     button_state = ft.Ref[ft.AnimatedSwitcher]()
-    user_id = "user_123"  # يجب تغييرها إلى معرف المستخدم الحقيقي
+    user_id = "user_123"  # يجب تغييره إلى معرف المستخدم الحقيقي
 
     def process_video(e):
         """ دالة إرسال الطلب عند الضغط على الزر """
         can_order, remaining_requests = can_place_order(user_id)
         if not can_order:
-            e.page.open(ft.SnackBar(content=ft.Text("لقد نفذت المحاولات المجانيه يمكنك العوده مره الاخر بعد 12 ساعه للتجديد 4 اخري" , color=ft.colors.WHITE), bgcolor="red"))  # ✅ الطريقة الجديدة
+            e.page.open(ft.SnackBar(ft.Text(f"❌ لا يمكنك إرسال طلب جديد حاليًا! الطلبات المتبقية: {remaining_requests}", color="white"), bgcolor="red"))
+
             e.page.update()
             return
         
@@ -361,30 +371,31 @@ def View():
         quantity = selected_value.current.value
 
         if not video_url:
-            e.page.open(ft.SnackBar(content=ft.Text("❌ من فضلك ادخل رابط الفديو"), bgcolor="green"))  # ✅ الطريقة الجديدة
+            e.page.open(ft.SnackBar(ft.Text(f"❌ من فضلك اختر رابط الفديو ", color="white"), bgcolor="red"))
             e.page.update()
             return
 
         if not quantity:
-            e.page.open(ft.SnackBar(content=ft.Text("❌ من فضلك ادخل الكميه"), bgcolor="green"))  # ✅ الطريقة الجديدة
+            e.page.open(ft.SnackBar(ft.Text(f"❌ من فضلك اختر عدد المشاهدات", color="white"), bgcolor="red"))
             e.page.update()
             return
 
         button_state.current.content = ft.ProgressRing(color="white")
         e.page.update()
 
-        # ⏳ إرسال الطلب إلى API (محاكاة استجابة ناجحة)
-        response = {"order": "123456"}  # استبدلها بالاستجابة الفعلية
+        # ⏳ إرسال الطلب إلى API
+        order_id, error = send_order(video_url, quantity)
 
-        if "order" in response:
+        if order_id:
             record_request(user_id)
-            success_msg = f"✅ تم إرسال الطلب بنجاح! رقم الطلب: {response['order']} | الطلبات المتبقية: {remaining_requests - 1}"
-            e.page.snack_bar = ft.SnackBar(ft.Text(success_msg, color="white"), bgcolor="green")
+            success_msg = f"✅ تم إرسال الطلب بنجاح! رقم الطلب: {order_id} | الطلبات المتبقية: {remaining_requests - 1}"
+            e.page.open(ft.SnackBar(ft.Text(f"{success_msg}", color="white"), bgcolor="green"))
+
+            e.page.update()
+
         else:
-            error_msg = "❌ حدث خطأ أثناء الطلب!"
-            e.page.snack_bar = ft.SnackBar(ft.Text(error_msg, color="white"), bgcolor="red")
-        
-        e.page.snack_bar.open = True
+            error_msg = f"❌ فشل الطلب: {error}"
+            e.page.open(ft.SnackBar(ft.Text(f"Counter value: {error_msg}", color="white"), bgcolor="red"))
         e.page.update()
 
         button_state.current.content = ft.ElevatedButton(
